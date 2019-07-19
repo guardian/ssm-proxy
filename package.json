@@ -1,0 +1,26 @@
+{
+  "name": "ssm-proxy",
+  "version": "0.0.1",
+  "description": "SSH proxy via AWS Systems Manager",
+  "bin": "dist/app.js",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "run": "npm run build && node dist/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guardian/ssm-proxy.git"
+  },
+  "author": "Guardian Developers",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/guardian/ssm-proxy/issues"
+  },
+  "homepage": "https://github.com/guardian/ssm-proxy#readme",
+  "devDependencies": {
+    "@types/node": "^12.6.8",
+    "typescript": "^3.5.3"
+  }
+}
