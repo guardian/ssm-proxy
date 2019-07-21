@@ -25,6 +25,7 @@
     "typescript": "^3.5.3"
   },
   "dependencies": {
+    "aws-sdk": "^2.496.0",
     "node-fetch": "^2.6.0"
   }
 }

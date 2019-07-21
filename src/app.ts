@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { generateKeyPairSync } from 'crypto';
+import AWS from 'aws-sdk';
 import fetch from 'node-fetch';
 
 const instanceId = process.argv[2];
@@ -35,15 +36,43 @@ function generateKeyPair(): { publicKey: string, privateKey: string} {
     });
 }
 
+async function runScript(client: AWS.SSM, instanceId: string, script: string): Promise<void> {
+    await client.sendCommand({
+        DocumentName: "AWS-RunShellScript",
+        InstanceIds: [instanceId],
+        // TODO MRB: comment indicating user that ran the command (copying ssm-scala)
+        Parameters: {
+            "commands": [script]
+        }
+    }).promise();
+}
+
+async function uploadPublicKey(instanceId: string, publicKey: string, region: string, profile: string): Promise<void> {
+    const client = new AWS.SSM({ region, credentials: new AWS.SharedIniFileCredentials({ profile })});
+
+    await runScript(client, instanceId, `
+        /bin/mkdir -p /home/$user/.ssh;
+        /bin/echo '${publicKey}' >> /home/$user/.ssh/authorized_keys;
+        /bin/chown $user /home/$user/.ssh/authorized_keys;
+        /bin/chmod 0600 /home/$user/.ssh/authorized_keys;
+    `);
+
+    await runScript(client, instanceId, `
+        /bin/sleep 30;
+        /bin/sed -i '/${publicKey.replace(/\\\\/g, "/")}/d' /home/$user/.ssh/authorized_keys;
+    `);
+}
+
 // TODO MRB:
-//  - Provision SSH keys on the machine (copying ssm-scala)
 //  - Shell to ssm create-session and connect stdin as proxy
 //  - Bonus extra credit
 //      - SSH into tags (eg ssh aws:investigations,pfi-worker,rex)
 
-lookupInstance(instanceId).then(({ profile, region }) => {
+lookupInstance(instanceId).then(async ({ profile, region }) => {
     console.error(`I will eventually connect to ${instanceId} in ${region} using ${profile} credentials`);
     const { publicKey, privateKey } = generateKeyPair();
+
+    await uploadPublicKey(instanceId, publicKey, region, profile);
 }).catch(err => {
     console.error(err);
 });
