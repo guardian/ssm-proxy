@@ -25,7 +25,9 @@
     "typescript": "^3.5.3"
   },
   "dependencies": {
+    "@types/sshpk": "^1.10.4",
     "aws-sdk": "^2.496.0",
-    "node-fetch": "^2.6.0"
+    "node-fetch": "^2.6.0",
+    "sshpk": "^1.16.1"
   }
 }

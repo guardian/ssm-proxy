@@ -17,4 +17,17 @@ Required SSH configuration (`~/.ssh/config`):
 ```
 host i-* mi-*
     ProxyCommand sh -c "ssm-proxy %h"
+    IdentityFile /tmp/ssh-proxy
+```
+
+Running locally
+---------------
+
+Set up the SSH configuration as above:
+
+```bash
+# Link once to make the build available on your PATH
+npm link
+
+npm run build && ssh ubuntu@i-<AWS Instance Id>
 ```

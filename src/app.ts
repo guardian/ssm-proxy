@@ -2,9 +2,10 @@
 
 import AWS from 'aws-sdk';
 import fetch from 'node-fetch';
-import { readFileSync } from 'fs';
-import { homedir } from 'os';
+import { writeFileSync, chmodSync } from 'fs';
 import { spawn } from 'child_process';
+import { generateKeyPairSync } from 'crypto';
+import sshpk from 'sshpk';
 
 const instanceId = process.argv[2];
 
@@ -32,6 +33,28 @@ async function runScript(client: AWS.SSM, instanceId: string, script: string): P
     }).promise();
 }
 
+function generateKeyPair(): { publicKey: string, privateKey: string} {
+    const { publicKey, privateKey } = generateKeyPairSync("rsa", {
+        // TODO MRB: I think this is 2048 in ssm-scala. Deliberate choice I should copy?
+        // https://github.com/guardian/ssm-scala/blob/master/src/main/scala/com/gu/ssm/utils/KeyMaker.scala#L28
+        modulusLength: 4096,
+        publicKeyEncoding: {
+            type: "spki",
+            format: "pem"
+        },
+        privateKeyEncoding: {
+            type: "pkcs8",
+            format: "pem",
+            // TODO MRB: I think I'm OK to go with the default cipher here?
+        }
+    });
+
+    return {
+        publicKey: sshpk.parseKey(publicKey, "pem").toString("ssh"),
+        privateKey
+    }
+}
+
 async function uploadPublicKey(instanceId: string, publicKey: string, user: string, region: string, profile: string): Promise<void> {
     const client = new AWS.SSM({ region, credentials: new AWS.SharedIniFileCredentials({ profile })});
 
@@ -50,19 +73,20 @@ async function uploadPublicKey(instanceId: string, publicKey: string, user: stri
 
 // TODO MRB:
 //  - Security
-//      - Can we generate keys and have SSH use them like the -i option
 //      - Download and insert host private keys into KnownHosts
 //      - Add tainted to motd
+//      - Use sed to only remove the key we uploaded
 //  - Bonus extra credit
 //      - SSH into tags (eg ssh aws:investigations,pfi-worker,rex)
 
 lookupInstance(instanceId).then(async ({ profile, region }) => {
     console.error(`I will eventually connect to ${instanceId} in ${region} using ${profile} credentials`);
-    
-    const publicKey = readFileSync(homedir() + "/.ssh/id_rsa.pub", { encoding: "utf-8" });
+    const { publicKey, privateKey } = generateKeyPair();
 
     // TODO MRB: how would we know if it's a different user and what user it is?
     await uploadPublicKey(instanceId, publicKey, "ubuntu", region, profile);
+    writeFileSync("/tmp/ssm-proxy", privateKey, { encoding: "utf-8" });
+    chmodSync("/tmp/ssm-proxy", 0o600);
 
     const command = `aws ssm start-session --target ${instanceId} --document-name AWS-StartSSHSession --parameters portNumber=22 --region ${region} --profile ${profile}`;
     spawn(command, { stdio: 'inherit', shell: true });
