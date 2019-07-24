@@ -4,6 +4,7 @@ import AWS from 'aws-sdk';
 import fetch from 'node-fetch';
 import { readFileSync } from 'fs';
 import { homedir } from 'os';
+import { spawn, ChildProcess } from 'child_process';
 
 const instanceId = process.argv[2];
 
@@ -47,6 +48,10 @@ async function uploadPublicKey(instanceId: string, publicKey: string, user: stri
     `);
 }
 
+function connectToInstance(instanceId: string, region: string, profile: string): ChildProcess {
+    return spawn("aws", ["ssm", "start-session", "--target", instanceId, "--document-name", "AWS-StartSSHSession", "--parameters", "'portNumber=22", "--region", region, "--profile", profile]);
+}
+
 // TODO MRB:
 //  - Shell to ssm create-session and connect stdin as proxy
 //  - Bonus extra credit
@@ -59,6 +64,9 @@ lookupInstance(instanceId).then(async ({ profile, region }) => {
 
     // TODO MRB: how would we know if it's a different user and what user it is?
     await uploadPublicKey(instanceId, publicKey, "ubuntu", region, profile);
+
+    const command = `aws ssm start-session --target ${instanceId} --document-name AWS-StartSSHSession --parameters portNumber=22 --region ${region} --profile ${profile}`;
+    spawn(command, { stdio: 'inherit', shell: true });
 }).catch(err => {
     console.error(err);
 });
