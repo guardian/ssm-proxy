@@ -4,7 +4,7 @@ import AWS from 'aws-sdk';
 import fetch from 'node-fetch';
 import { readFileSync } from 'fs';
 import { homedir } from 'os';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 
 const instanceId = process.argv[2];
 
@@ -48,12 +48,11 @@ async function uploadPublicKey(instanceId: string, publicKey: string, user: stri
     `);
 }
 
-function connectToInstance(instanceId: string, region: string, profile: string): ChildProcess {
-    return spawn("aws", ["ssm", "start-session", "--target", instanceId, "--document-name", "AWS-StartSSHSession", "--parameters", "'portNumber=22", "--region", region, "--profile", profile]);
-}
-
 // TODO MRB:
-//  - Shell to ssm create-session and connect stdin as proxy
+//  - Security
+//      - Can we generate keys and have SSH use them like the -i option
+//      - Download and insert host private keys into KnownHosts
+//      - Add tainted to motd
 //  - Bonus extra credit
 //      - SSH into tags (eg ssh aws:investigations,pfi-worker,rex)
 
