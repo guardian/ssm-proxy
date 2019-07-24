@@ -22,11 +22,11 @@ async function lookupInstance(instanceId: string): Promise<{ region: string, pro
     return { region, profile };
 }
 
-async function runScript(client: AWS.SSM, instanceId: string, script: string): Promise<string> {
+async function runScript(client: AWS.SSM, instanceId: string, user: String, script: string): Promise<string> {
     const request = {
         DocumentName: "AWS-RunShellScript",
         InstanceIds: [instanceId],
-        // TODO MRB: comment indicating user that ran the command (copying ssm-scala)
+        Comment: `Command submitted by ${user}`,
         Parameters: {
             "commands": [script]
         }
@@ -77,7 +77,7 @@ function generateKeyPair(): { publicKey: string, privateKey: string} {
 }
 
 async function provisionInstance(instanceId: string, publicKey: string, loginUser: string, ssmUser: string, client: AWS.SSM): Promise<string> {
-    const commandId = await runScript(client, instanceId, `
+    const commandId = await runScript(client, instanceId, ssmUser, `
         /bin/mkdir -p /home/${loginUser}/.ssh;
         /bin/echo '${publicKey}' >> /home/${loginUser}/.ssh/authorized_keys;
         /bin/chown ${loginUser} /home/${loginUser}/.ssh/authorized_keys;
@@ -92,7 +92,7 @@ async function provisionInstance(instanceId: string, publicKey: string, loginUse
         for hostkey in $(sshd -T 2> /dev/null |grep "^hostkey " | cut -d ' ' -f 2); do cat $hostkey.pub; done
     `);
 
-    await runScript(client, instanceId, `
+    await runScript(client, instanceId, ssmUser, `
         /bin/sleep 30;
         /bin/echo '' > /home/${loginUser}/.ssh/authorized_keys;
     `);
