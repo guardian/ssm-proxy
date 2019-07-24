@@ -76,18 +76,25 @@ function generateKeyPair(): { publicKey: string, privateKey: string} {
     }
 }
 
-async function provisionInstance(instanceId: string, publicKey: string, user: string, client: AWS.SSM): Promise<string> {
+async function provisionInstance(instanceId: string, publicKey: string, loginUser: string, ssmUser: string, client: AWS.SSM): Promise<string> {
     const commandId = await runScript(client, instanceId, `
-        /bin/mkdir -p /home/${user}/.ssh;
-        /bin/echo '${publicKey}' >> /home/${user}/.ssh/authorized_keys;
-        /bin/chown ${user} /home/${user}/.ssh/authorized_keys;
-        /bin/chmod 0600 /home/${user}/.ssh/authorized_keys;
+        /bin/mkdir -p /home/${loginUser}/.ssh;
+        /bin/echo '${publicKey}' >> /home/${loginUser}/.ssh/authorized_keys;
+        /bin/chown ${loginUser} /home/${loginUser}/.ssh/authorized_keys;
+        /bin/chmod 0600 /home/${loginUser}/.ssh/authorized_keys;
+        /usr/bin/test -d /etc/update-motd.d/ &&
+        ( /usr/bin/test -f /etc/update-motd.d/99-tainted || /bin/echo -e '#!/bin/bash' | /usr/bin/sudo /usr/bin/tee -a /etc/update-motd.d/99-tainted >> /dev/null;
+        /bin/echo -e 'echo -e "\\033[0;31mThis instance should be considered tainted.\\033[0;39m"' | /usr/bin/sudo /usr/bin/tee -a /etc/update-motd.d/99-tainted >> /dev/null;
+        /bin/echo -e 'echo -e "\\033[0;31mIt was accessed by ${ssmUser} at ${new Date().toISOString()}\\033[0;39m"' | /usr/bin/sudo /usr/bin/tee -a /etc/update-motd.d/99-tainted >> /dev/null;
+        /usr/bin/sudo /bin/chmod 0755 /etc/update-motd.d/99-tainted;
+        /usr/bin/sudo /bin/run-parts /etc/update-motd.d/ | /usr/bin/sudo /usr/bin/tee /run/motd.dynamic >> /dev/null;
+        )
         for hostkey in $(sshd -T 2> /dev/null |grep "^hostkey " | cut -d ' ' -f 2); do cat $hostkey.pub; done
     `);
 
     await runScript(client, instanceId, `
         /bin/sleep 30;
-        /bin/echo '' > /home/${user}/.ssh/authorized_keys;
+        /bin/echo '' > /home/${loginUser}/.ssh/authorized_keys;
     `);
 
     return commandId;
@@ -95,22 +102,26 @@ async function provisionInstance(instanceId: string, publicKey: string, user: st
 
 // TODO MRB:
 //  - Security
-//      - Add tainted to motd
 //      - Use sed to only remove the key we uploaded
 //  - Bonus extra credit
 //      - SSH into tags (eg ssh aws:investigations,pfi-worker,rex)
 
 lookupInstance(instanceId).then(async ({ profile, region }) => {
-    const client = new AWS.SSM({ region, credentials: new AWS.SharedIniFileCredentials({ profile })});
+    const credentials = new AWS.SharedIniFileCredentials({ profile });
+    const ssmClient = new AWS.SSM({ region, credentials });
+    const stsClient = new AWS.STS({ region, credentials });
+
+    const user = (await stsClient.getCallerIdentity().promise()).UserId!;
+
     const { publicKey, privateKey } = generateKeyPair();
 
     // TODO MRB: how would we know if it's a different user and what user it is?
-    const commandId = await provisionInstance(instanceId, publicKey, "ubuntu", client);
+    const commandId = await provisionInstance(instanceId, publicKey, "ubuntu", user, ssmClient);
 
     writeFileSync("/tmp/ssm-proxy-identity", privateKey, { encoding: "utf-8" });
     chmodSync("/tmp/ssm-proxy-identity", 0o600);
 
-    const commandOutput = (await getScriptOutput(commandId, instanceId, client)).split("\n");
+    const commandOutput = (await getScriptOutput(commandId, instanceId, ssmClient)).split("\n");
     const knownHostsFile = commandOutput.map(line => `${instanceId} ${line}`).join("\n");
 
     writeFileSync("/tmp/ssm-proxy-known-hosts", knownHostsFile, { encoding: "utf-8" });
