@@ -17,7 +17,9 @@ Required SSH configuration (`~/.ssh/config`):
 ```
 host i-* mi-*
     ProxyCommand sh -c "ssm-proxy %h"
-    IdentityFile /tmp/ssh-proxy
+    IdentityFile /tmp/ssm-proxy-identity
+    UserKnownHostsFile /tmp/ssm-proxy-known-hosts
+    StrictHostKeyChecking yes
 ```
 
 Running locally
