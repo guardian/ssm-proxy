@@ -11,6 +11,18 @@ ssh i-0123ade411
 
 and it will magically connect you, providing you have AWS credentials for the correct Janus profile.
 
+Installation
+------------
+
+Requires the [AWS Session Manager Plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html).
+
+There is a [homebrew tap](https://github.com/dkanejs/homebrew-aws-session-manager-plugin) for Mac users:
+
+```
+brew tap dkanejs/aws-session-manager-plugin
+brew install aws-session-manager-plugin
+```
+
 Required SSH configuration (`~/.ssh/config`):
 
 ```
