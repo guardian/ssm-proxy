@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { generateKeyPairSync } from 'crypto';
 import AWS from 'aws-sdk';
 import fetch from 'node-fetch';
+import { readFileSync } from 'fs';
+import { homedir } from 'os';
 
 const instanceId = process.argv[2];
 
@@ -19,23 +20,6 @@ async function lookupInstance(instanceId: string): Promise<{ region: string, pro
     return { region, profile };
 }
 
-function generateKeyPair(): { publicKey: string, privateKey: string} {
-    return generateKeyPairSync("rsa", {
-        // TODO MRB: I think this is 2048 in ssm-scala. Deliberate choice I should copy?
-        // https://github.com/guardian/ssm-scala/blob/master/src/main/scala/com/gu/ssm/utils/KeyMaker.scala#L28
-        modulusLength: 4096,
-        publicKeyEncoding: {
-            type: "spki",
-            format: "pem"
-        },
-        privateKeyEncoding: {
-            type: "pkcs8",
-            format: "pem",
-            // TODO MRB: I think I'm OK to go with the default cipher here?
-        }
-    });
-}
-
 async function runScript(client: AWS.SSM, instanceId: string, script: string): Promise<void> {
     await client.sendCommand({
         DocumentName: "AWS-RunShellScript",
@@ -47,19 +31,19 @@ async function runScript(client: AWS.SSM, instanceId: string, script: string): P
     }).promise();
 }
 
-async function uploadPublicKey(instanceId: string, publicKey: string, region: string, profile: string): Promise<void> {
+async function uploadPublicKey(instanceId: string, publicKey: string, user: string, region: string, profile: string): Promise<void> {
     const client = new AWS.SSM({ region, credentials: new AWS.SharedIniFileCredentials({ profile })});
 
     await runScript(client, instanceId, `
-        /bin/mkdir -p /home/$user/.ssh;
-        /bin/echo '${publicKey}' >> /home/$user/.ssh/authorized_keys;
-        /bin/chown $user /home/$user/.ssh/authorized_keys;
-        /bin/chmod 0600 /home/$user/.ssh/authorized_keys;
+        /bin/mkdir -p /home/${user}/.ssh;
+        /bin/echo '${publicKey}' >> /home/${user}/.ssh/authorized_keys;
+        /bin/chown ${user} /home/${user}/.ssh/authorized_keys;
+        /bin/chmod 0600 /home/${user}/.ssh/authorized_keys;
     `);
 
     await runScript(client, instanceId, `
         /bin/sleep 30;
-        /bin/sed -i '/${publicKey.replace(/\\\\/g, "/")}/d' /home/$user/.ssh/authorized_keys;
+        /bin/echo '' > /home/${user}/.ssh/authorized_keys;
     `);
 }
 
@@ -70,9 +54,11 @@ async function uploadPublicKey(instanceId: string, publicKey: string, region: st
 
 lookupInstance(instanceId).then(async ({ profile, region }) => {
     console.error(`I will eventually connect to ${instanceId} in ${region} using ${profile} credentials`);
-    const { publicKey, privateKey } = generateKeyPair();
+    
+    const publicKey = readFileSync(homedir() + "/.ssh/id_rsa.pub", { encoding: "utf-8" });
 
-    await uploadPublicKey(instanceId, publicKey, region, profile);
+    // TODO MRB: how would we know if it's a different user and what user it is?
+    await uploadPublicKey(instanceId, publicKey, "ubuntu", region, profile);
 }).catch(err => {
     console.error(err);
 });
