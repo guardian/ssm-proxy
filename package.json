@@ -1,5 +1,5 @@
 {
-  "name": "ssm-proxy",
+  "name": "@guardian/ssm-proxy",
   "version": "0.0.1",
   "description": "SSH proxy via AWS Systems Manager",
   "bin": "dist/app.js",
