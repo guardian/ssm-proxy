@@ -6,7 +6,7 @@ Intermediate between ssh (via `ProxyCommand`) and AWS `ssm start-session` using 
 Does not require bastion hosts as SSH connections are [tunnelled through AWS Systems Manager](https://aws.amazon.com/about-aws/whats-new/2019/07/session-manager-launches-tunneling-support-for-ssh-and-scp/). In practice this means you can run:
 
 ```
-ssh i-0123ade411
+ssh ubuntu@i-0123ade411
 ```
 
 and it will magically connect you, providing you have AWS credentials for the correct Janus profile.
