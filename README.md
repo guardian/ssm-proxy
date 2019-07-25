@@ -39,6 +39,9 @@ Running locally
 Set up the SSH configuration as above:
 
 ```bash
+# Do a build
+npm run build
+
 # Link once to make the build available on your PATH
 npm link
 
