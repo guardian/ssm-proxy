@@ -1,7 +1,7 @@
 ssm-proxy
 =========
 
-Intermediate between ssh (via `ProxyCommand`) and AWS `ssm start-session` using the `AWS-StartSSHSession` document. Uploads your `id_rsa.pub` to the instance and then ensures it is deleted after 30 seconds, following the model from [ssm-scala](https://github.com/guardian/ssm-scala).
+Intermediate between ssh (via `ProxyCommand`) and AWS `ssm start-session` using the `AWS-StartSSHSession` document. Generates and uploads temporary keys that are deleted after 30 seconds, following the model from [ssm-scala](https://github.com/guardian/ssm-scala).
 
 Does not require bastion hosts as SSH connections are [tunnelled through AWS Systems Manager](https://aws.amazon.com/about-aws/whats-new/2019/07/session-manager-launches-tunneling-support-for-ssh-and-scp/). In practice this means you can run:
 
