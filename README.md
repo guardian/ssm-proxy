@@ -1,6 +1,8 @@
 ssm-proxy
 =========
 
+**This project is no longer maintained. Tunnelling SSH sessions through AWS Systems Manager has been added to the Guardian-wide standard tool [ssm-scala](github.com/guardian/ssm-scala)**
+
 Intermediate between ssh (via `ProxyCommand`) and AWS `ssm start-session` using the `AWS-StartSSHSession` document. Generates and uploads temporary keys that are deleted after 30 seconds, following the model from [ssm-scala](https://github.com/guardian/ssm-scala).
 
 Does not require bastion hosts as SSH connections are [tunnelled through AWS Systems Manager](https://aws.amazon.com/about-aws/whats-new/2019/07/session-manager-launches-tunneling-support-for-ssh-and-scp/). In practice this means you can run:
